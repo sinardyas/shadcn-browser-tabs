@@ -6,7 +6,6 @@ import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useDebounce } from "@/hooks/use-debounce";
-import useIntersectionObserver from "@/hooks/use-intersection-observer";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { Input } from "./input";
@@ -22,7 +21,7 @@ const TabsList = React.forwardRef<
 		<TabsPrimitive.List
 			ref={ref}
 			className={cn(
-				"inline-flex h-10 items-center text-muted-foreground bg-transparent overflow-x-scroll scroll-smooth overflow-y-hidden w-[300px]",
+				"inline-flex h-10 items-center text-muted-foreground bg-transparent overflow-x-scroll scroll-smooth overflow-y-hidden w-[70%]",
 				className,
 			)}
 			{...props}
@@ -79,7 +78,7 @@ interface TabsNavigationProps
 	onCloseTab?: () => void;
 	addTabTitle?: string;
 	totalItems: number;
-	tabIntersection: IntersectionObserverEntry | undefined;
+	isTabNotVisible: boolean;
 }
 
 const Nav = ({ direction = "left" }) => (
@@ -102,24 +101,16 @@ const TabsNavigation = React.forwardRef<
 	TabsNavigationProps
 >(
 	(
-		{
-			children,
-			onAddNewTab,
-			addTabTitle = "Add new tab",
-			totalItems = 1,
-			tabIntersection,
-		},
+		{ children, onAddNewTab, addTabTitle = "Add new tab", isTabNotVisible },
 		ref,
 	) => {
-		if (totalItems <= 4) {
+		if (isTabNotVisible) {
 			return (
-				<div className="inline-flex items-center w-[40vw] justify-between">
+				<div className="inline-flex items-center w-full justify-between">
+					<Nav />
 					{children}
-					<Button
-						onClick={onAddNewTab}
-						size={"sm"}
-						className="bg-[#0066FF] float-right"
-					>
+					<Nav direction="right" />
+					<Button onClick={onAddNewTab} size="sm" className="bg-[#0066FF] ml-2">
 						<PlusCircleIcon size={16} />
 						{addTabTitle}
 					</Button>
@@ -128,13 +119,13 @@ const TabsNavigation = React.forwardRef<
 		}
 
 		return (
-			<div className="inline-flex items-center w-[40vw] justify-between">
-				<div className="inline-flex items-center">
-					<Nav />
-					{children}
-					<Nav direction="right" />
-				</div>
-				<Button onClick={onAddNewTab} size="sm" className="bg-[#0066FF] ml-2">
+			<div className="inline-flex items-center w-full justify-between">
+				{children}
+				<Button
+					onClick={onAddNewTab}
+					size={"sm"}
+					className="bg-[#0066FF] float-right"
+				>
 					<PlusCircleIcon size={16} />
 					{addTabTitle}
 				</Button>
@@ -145,11 +136,11 @@ const TabsNavigation = React.forwardRef<
 
 interface TabsAction {
 	tabTitle: string;
+	isTabNotVisible: boolean;
 	totalItems: number;
 	activeTabId: string;
 	addNewTab: () => void;
 	tabs: Array<{ title: string }>;
-	tabIntersection: IntersectionObserverEntry | undefined;
 	setTabTitle: React.Dispatch<React.SetStateAction<string>>;
 	setActiveTabId: React.Dispatch<React.SetStateAction<string>>;
 	tabListRootRef: React.MutableRefObject<HTMLDivElement | null>;
@@ -172,7 +163,7 @@ const BrowserTabs = React.forwardRef<
 			addNewTab,
 			activeTabRef,
 			tabListRootRef,
-			tabIntersection,
+			isTabNotVisible,
 		},
 		ref,
 	) => {
@@ -181,7 +172,7 @@ const BrowserTabs = React.forwardRef<
 				<TabsNavigation
 					onAddNewTab={addNewTab}
 					totalItems={totalItems}
-					tabIntersection={tabIntersection}
+					isTabNotVisible={isTabNotVisible}
 				>
 					<TabsList ref={tabListRootRef}>
 						{tabs.map(({ title }, i) => (
@@ -240,10 +231,13 @@ const useTabs = (): TabsAction => {
 	const debouncedTabTitle = useDebounce(tabTitle, 500);
 	const debouncedTabs = useDebounce(tabs, 100);
 
-	const tabIntersection = useIntersectionObserver(activeTabRef, {
-		root: tabListRootRef.current,
-		threshold: 0.8,
-	});
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	const isTabNotVisible = useMemo(
+		() =>
+			tabs.length * (activeTabRef.current?.clientWidth ?? 0) >
+			(tabListRootRef.current?.clientWidth ?? 0),
+		[tabs, activeTabRef, tabListRootRef],
+	);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: This effect only run when `debouncedTabTitle` changed
 	useEffect(() => {
@@ -282,7 +276,6 @@ const useTabs = (): TabsAction => {
 	}, [tabs]);
 
 	return {
-		tabIntersection,
 		totalItems,
 		activeTabId,
 		setActiveTabId,
@@ -292,6 +285,7 @@ const useTabs = (): TabsAction => {
 		activeTabRef,
 		tabListRootRef,
 		tabTitle: currentTabTitle,
+		isTabNotVisible,
 	};
 };
 
