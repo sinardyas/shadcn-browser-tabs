@@ -1,175 +1,307 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { useState } from  'react';
-import * as TabsPrimitive from "@radix-ui/react-tabs"
+import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { ChevronLeft, ChevronRight, PlusCircleIcon } from "lucide-react";
+import * as React from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { cn } from "@/lib/utils"
-import { Button } from "./button"
-import { Input } from "./input";
 import { useDebounce } from "@/hooks/use-debounce";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import useIntersectionObserver from "@/hooks/use-intersection-observer";
+import { cn } from "@/lib/utils";
+import { Button } from "./button";
+import { Input } from "./input";
 import { Label } from "./label";
-import { UseFieldArrayReturn } from "react-hook-form";
 
-const Tabs = TabsPrimitive.Root
+const Tabs = TabsPrimitive.Root;
 
 const TabsList = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (<React.Fragment>
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "inline-flex h-10 items-center rounded-md p-1 text-muted-foreground bg-transparent w-[350px] overflow-x-scroll scroll-smooth overflow-y-hidden",
-      className
-    )}
-    {...props}
-  />
-  </React.Fragment>
-))
-TabsList.displayName = TabsPrimitive.List.displayName
+	React.ElementRef<typeof TabsPrimitive.List>,
+	React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+>(({ className, ...props }, ref) => (
+	<React.Fragment>
+		<TabsPrimitive.List
+			ref={ref}
+			className={cn(
+				"inline-flex h-10 items-center text-muted-foreground bg-transparent overflow-x-scroll scroll-smooth overflow-y-hidden w-[300px]",
+				className,
+			)}
+			{...props}
+		/>
+	</React.Fragment>
+));
+TabsList.displayName = TabsPrimitive.List.displayName;
+
+type CustomTabTrigger = TabsPrimitive.TabsTriggerProps & { totalItems: number };
 
 const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm border border-[#F6F6F6]",
-      className
-    )}
-    {...props}
-  />
-))
-TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+	React.ElementRef<typeof TabsPrimitive.Trigger>,
+	CustomTabTrigger
+>(({ className, totalItems, id, ...props }, ref) => {
+	const isTotalItemMoreThan4 = useMemo(() => totalItems > 4, [totalItems]);
+	const isFirstElement = useMemo(() => Number(id) === 0, [id]);
+	const isLastElement = useMemo(
+		() => totalItems - 1 === Number(id),
+		[totalItems, id],
+	);
+	return (
+		<TabsPrimitive.Trigger
+			ref={ref}
+			className={cn(
+				"bg-zinc-100 inline-flex items-center justify-center whitespace-nowrap h-full px-3 py-1.5 text-sm font-bold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-[#0066FF] data-[state=active]:shadow-sm border border-[#EAEAEA]",
+				!isTotalItemMoreThan4 && isFirstElement && "rounded-tl-md",
+				!isTotalItemMoreThan4 && isLastElement && "rounded-tr-md",
+				className,
+			)}
+			{...props}
+		/>
+	);
+});
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 const TabsContent = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+	React.ElementRef<typeof TabsPrimitive.Content>,
+	React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
 >(({ className, ...props }, ref) => (
-  <TabsPrimitive.Content
-    ref={ref}
-    className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-      className
-    )}
-    {...props}
-  />
-))
+	<TabsPrimitive.Content
+		ref={ref}
+		className={cn(
+			"mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+			className,
+		)}
+		{...props}
+	/>
+));
 TabsContent.displayName = TabsPrimitive.Content.displayName;
 
-interface TabsNavigationProps extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.TabsList> {
-  onAddNewTab?: () => void;
-  onCloseTab?: () => void;
-  addTabTitle?: string;
-  totalItems: number;
+interface TabsNavigationProps
+	extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.TabsList> {
+	onAddNewTab?: () => void;
+	onCloseTab?: () => void;
+	addTabTitle?: string;
+	totalItems: number;
+	tabIntersection: IntersectionObserverEntry | undefined;
 }
+
+const Nav = ({ direction = "left" }) => (
+	<div
+		className={cn(
+			"bg-zinc-100 h-10 px-3 py-1.5 inline-flex items-center justify-center whitespace-nowrap p1 text-sm font-normal ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm border border-[#EAEAEA]",
+			direction === "left" ? "rounded-tl-md" : "rounded-tr-md",
+		)}
+	>
+		{direction === "left" ? (
+			<ChevronLeft size={16} className="text-[#0066FF]" />
+		) : (
+			<ChevronRight size={16} className="text-[#0066FF]" />
+		)}
+	</div>
+);
 
 const TabsNavigation = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.TabsList>,
-  TabsNavigationProps
->(({className, children, onAddNewTab, addTabTitle = 'Add new tab', totalItems = 1}, ref) => {
-  if (totalItems < 4) {
-    return <React.Fragment>
-      {children}
-      <Button onClick={onAddNewTab}>{addTabTitle}</Button>
-    </React.Fragment>
-  }
+	React.ElementRef<typeof TabsPrimitive.TabsList>,
+	TabsNavigationProps
+>(
+	(
+		{
+			children,
+			onAddNewTab,
+			addTabTitle = "Add new tab",
+			totalItems = 1,
+			tabIntersection,
+		},
+		ref,
+	) => {
+		if (totalItems <= 4) {
+			return (
+				<div className="inline-flex items-center w-[40vw] justify-between">
+					{children}
+					<Button
+						onClick={onAddNewTab}
+						size={"sm"}
+						className="bg-[#0066FF] float-right"
+					>
+						<PlusCircleIcon size={16} />
+						{addTabTitle}
+					</Button>
+				</div>
+			);
+		}
 
-  return <React.Fragment>
-    <a className={cn(
-      "h-10 w-10 p-1 inline-flex items-center justify-center whitespace-nowrap rounded-sm p1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
-      className
-    )}><ChevronLeft size={16}/></a>
-    {children}
-    <a className={cn(
-      "h-10 w-10 p-1 inline-flex items-center justify-center whitespace-nowrap rounded-sm p1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
-      className
-    )} href=""><ChevronRight size={16}/></a>
-    <Button onClick={onAddNewTab}>{addTabTitle}</Button>
-  </React.Fragment>
-})
+		return (
+			<div className="inline-flex items-center w-[40vw] justify-between">
+				<div className="inline-flex items-center">
+					<Nav />
+					{children}
+					<Nav direction="right" />
+				</div>
+				<Button onClick={onAddNewTab} size="sm" className="bg-[#0066FF] ml-2">
+					<PlusCircleIcon size={16} />
+					{addTabTitle}
+				</Button>
+			</div>
+		);
+	},
+);
 
 interface TabsAction {
-  activeTabId: string; 
-  setActiveTabId: React.Dispatch<React.SetStateAction<string>>;
-  totalItems: number; 
-  tabs: { title: string }[], 
-  tabTitle: string;
-  setTabTitle: React.Dispatch<React.SetStateAction<string>>;
-  addNewTab: () => void;
-}
-
-const useTabs = (): TabsAction => {
-  const [tabs, setTabs] = useState<{ title: string; }[]>([{ title: 'New Tab' }]);
-  const [tabTitle, setTabTitle] = useState('New Tab');
-  const [activeTabId, setActiveTabId] = useState('tab-0');
-
-  const debouncedTabTitle = useDebounce(tabTitle, 500);
-
-  React.useEffect(() => {
-    // Get current active tab id
-    const [_, id] = activeTabId?.split('-');
-    
-    const currentTabs = tabs;
-
-    if (debouncedTabTitle) {
-      currentTabs[Number(id)].title = debouncedTabTitle;
-    }
-
-    // Update division
-    setTabs([...currentTabs]);
-  }, [debouncedTabTitle]);
-
-  const currentTabTitle = React.useMemo(() => tabs[Number(activeTabId?.split('-')[1])].title, [activeTabId]);
-  
-  const totalItems = React.useMemo(() => tabs.length, [tabs]);
-
-  const addNewTab = React.useCallback(() => setTabs([...tabs, { title: 'New Tab' }]), [tabs]);
-
-  return {
-    totalItems,
-    activeTabId,
-    setActiveTabId,
-    tabs,
-    setTabTitle,
-    addNewTab,
-    tabTitle: currentTabTitle
-  }
+	tabTitle: string;
+	totalItems: number;
+	activeTabId: string;
+	addNewTab: () => void;
+	tabs: Array<{ title: string }>;
+	tabIntersection: IntersectionObserverEntry | undefined;
+	setTabTitle: React.Dispatch<React.SetStateAction<string>>;
+	setActiveTabId: React.Dispatch<React.SetStateAction<string>>;
+	tabListRootRef: React.MutableRefObject<HTMLDivElement | null>;
+	activeTabRef: React.MutableRefObject<HTMLButtonElement | null>;
 }
 
 type BrowserTabsProps = TabsPrimitive.TabsProps & TabsAction;
 
 const BrowserTabs = React.forwardRef<
-  React.ElementRef<typeof Tabs>, 
-  BrowserTabsProps
->(({ children, activeTabId, setActiveTabId, totalItems, tabs, addNewTab }, ref) => {
-  return <Tabs value={activeTabId} onValueChange={setActiveTabId}>
-      <TabsNavigation onAddNewTab={addNewTab} totalItems={totalItems}>
-        <TabsList>
-          {tabs.map(({ title }, i) => <TabsTrigger value={`tab-${i}`} key={i} id={String(i)}>{title}</TabsTrigger>)}
-        </TabsList>
-      </TabsNavigation>
-      {tabs.map(({ title }, i) => <TabsContent value={`tab-${i}`} key={i}>
-        {children}
-      </TabsContent>)}
-    </Tabs>;
-});
+	React.ElementRef<typeof Tabs>,
+	BrowserTabsProps
+>(
+	(
+		{
+			children,
+			activeTabId,
+			setActiveTabId,
+			totalItems,
+			tabs,
+			addNewTab,
+			activeTabRef,
+			tabListRootRef,
+			tabIntersection,
+		},
+		ref,
+	) => {
+		return (
+			<Tabs value={activeTabId} onValueChange={setActiveTabId}>
+				<TabsNavigation
+					onAddNewTab={addNewTab}
+					totalItems={totalItems}
+					tabIntersection={tabIntersection}
+				>
+					<TabsList ref={tabListRootRef}>
+						{tabs.map(({ title }, i) => (
+							<TabsTrigger
+								value={`tab-${i}`}
+								// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+								key={i}
+								id={String(i)}
+								totalItems={totalItems}
+								ref={totalItems - 1 === i ? activeTabRef : undefined}
+							>
+								{title}
+							</TabsTrigger>
+						))}
+					</TabsList>
+				</TabsNavigation>
+				{tabs.map(({ title }, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+					<TabsContent value={`tab-${i}`} key={i}>
+						{children}
+					</TabsContent>
+				))}
+			</Tabs>
+		);
+	},
+);
 
-const TabTitleInput = ({ title, setValue }: { title: string; setValue: (s: string) => void }) => {
-  const [temp, setTemp] = React.useState(title);
+const TabTitleInput = ({
+	title,
+	setValue,
+}: { title: string; setValue: (s: string) => void }) => {
+	const [temp, setTemp] = React.useState(title);
 
-  const onChange: React.ChangeEventHandler<HTMLInputElement> = ({ currentTarget }) => {
-    setTemp(currentTarget.value);
-    setValue(currentTarget.value);
-  }
+	const onChange: React.ChangeEventHandler<HTMLInputElement> = ({
+		currentTarget,
+	}) => {
+		setTemp(currentTarget.value);
+		setValue(currentTarget.value);
+	};
 
-  return <div className="grid w-full max-w-sm items-center gap-1.5">
-    <Label htmlFor="email">Tab name</Label>
-    <Input value={temp} onChange={onChange}/>
-  </div>
-}
+	return (
+		<div className="grid w-full max-w-sm items-center gap-1.5">
+			<Label htmlFor="email">Tab name</Label>
+			<Input value={temp} onChange={onChange} />
+		</div>
+	);
+};
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, TabsNavigation, BrowserTabs, useTabs, TabTitleInput }
+const useTabs = (): TabsAction => {
+	const [tabs, setTabs] = useState<{ title: string }[]>([{ title: "New Tab" }]);
+	const [tabTitle, setTabTitle] = useState("New Tab");
+	const [activeTabId, setActiveTabId] = useState("tab-0");
+	const activeTabRef = React.useRef<HTMLButtonElement | null>(null);
+	const tabListRootRef = React.useRef<HTMLDivElement | null>(null);
+
+	const debouncedTabTitle = useDebounce(tabTitle, 500);
+	const debouncedTabs = useDebounce(tabs, 100);
+
+	const tabIntersection = useIntersectionObserver(activeTabRef, {
+		root: tabListRootRef.current,
+		threshold: 0.8,
+	});
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: This effect only run when `debouncedTabTitle` changed
+	useEffect(() => {
+		// Get current active tab id
+		const [_, id] = activeTabId.split("-");
+
+		const currentTabs = tabs;
+
+		if (debouncedTabTitle) {
+			currentTabs[Number(id)].title = debouncedTabTitle;
+		}
+
+		// Update division
+		setTabs([...currentTabs]);
+	}, [debouncedTabTitle]);
+
+	// Side effect to scroll and focus to last added tabs
+	// biome-ignore lint/correctness/useExhaustiveDependencies: This effect will run when `debouncedTabs` and `activeTabRef` changed
+	useEffect(
+		() => activeTabRef.current?.scrollIntoView({ behavior: "smooth" }),
+		[debouncedTabs, activeTabRef],
+	);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	const currentTabTitle = useMemo(
+		() => tabs[Number(activeTabId?.split("-")[1])].title,
+		[activeTabId],
+	);
+
+	const totalItems = useMemo(() => tabs.length, [tabs]);
+
+	const addNewTab = React.useCallback(() => {
+		const _tabs = [...tabs, { title: "New Tab" }];
+		setTabs(_tabs);
+		setActiveTabId(`tab-${_tabs.length - 1}`);
+	}, [tabs]);
+
+	return {
+		tabIntersection,
+		totalItems,
+		activeTabId,
+		setActiveTabId,
+		tabs,
+		setTabTitle,
+		addNewTab,
+		activeTabRef,
+		tabListRootRef,
+		tabTitle: currentTabTitle,
+	};
+};
+
+export {
+	Tabs,
+	TabsList,
+	TabsTrigger,
+	TabsContent,
+	TabsNavigation,
+	BrowserTabs,
+	useTabs,
+	TabTitleInput,
+};
