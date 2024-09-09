@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { BrowserTabs, TabTitleInput, useTabs } from "@/components/ui/tabs";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useConfirm } from "@omit/react-confirm-dialog";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -36,7 +37,8 @@ const validationSchema = z.object({
 type FormValues = z.infer<typeof validationSchema>;
 
 export default function Home() {
-	const { ...tabs } = useTabs();
+	const tabs = useTabs();
+	const confirm = useConfirm();
 
 	const form = useForm<FormValues>({
 		resolver: zodResolver(validationSchema),
@@ -113,64 +115,96 @@ export default function Home() {
 								price: 0,
 							});
 						}}
+						removeTab={async (id: string) => {
+							const result = await confirm({
+								title: "Do you want to delete the tab?",
+								description:
+									"If you delete the tab, you will lost the entire datas under the tab. ",
+								alertDialogContent: {
+									className: "w-[870px] max-w-none",
+								},
+								alertDialogHeader: {
+									className: "!text-center",
+								},
+								alertDialogDescription: {
+									className: "text-black text-sm",
+								},
+								alertDialogFooter: {
+									className: "!justify-center gap-10",
+								},
+								confirmText: "Yes",
+								cancelText: "No",
+								confirmButton: {
+									className: "bg-[#0066FF] w-[140px]",
+								},
+								cancelButton: {
+									className:
+										"bg-[#F6F6F6] w-[140px] border-none text-[#0066FF] px-6 py-3",
+								},
+							});
+
+							if (!result) return;
+
+							tabs.removeTab(id);
+						}}
 					>
 						<TabTitleInput title={tabs.tabTitle} setValue={tabs.setTabTitle} />
 
-						{/* <FormField
-              control={form.control}
-              name={`products.${Number(tabs.activeTabId.split('-')[1])}.file`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Product File</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage className="text-red-500 capitalize" />
-                </FormItem>
-              )}
-            />
+						<FormField
+							control={form.control}
+							name={`products.${Number(tabs.activeTabId.split("-")[1])}.file`}
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Product File</FormLabel>
+									<FormControl>
+										<Input {...field} />
+									</FormControl>
+									<FormMessage className="text-red-500 capitalize" />
+								</FormItem>
+							)}
+						/>
 
-            <FormField
-              control={form.control}
-              name={`products.${Number(tabs.activeTabId.split('-')[1])}.name`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Product Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage className="text-red-500 capitalize" />
-                </FormItem>
-              )}
-            />
+						<FormField
+							control={form.control}
+							name={`products.${Number(tabs.activeTabId.split("-")[1])}.name`}
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Product Name</FormLabel>
+									<FormControl>
+										<Input {...field} />
+									</FormControl>
+									<FormMessage className="text-red-500 capitalize" />
+								</FormItem>
+							)}
+						/>
 
-            <FormField
-              control={form.control}
-              name={`products.${Number(tabs.activeTabId.split('-')[1])}.description`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Product Desc</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage className="text-red-500 capitalize" />
-                </FormItem>
-              )}
-            />
+						<FormField
+							control={form.control}
+							name={`products.${Number(tabs.activeTabId.split("-")[1])}.description`}
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Product Desc</FormLabel>
+									<FormControl>
+										<Input {...field} />
+									</FormControl>
+									<FormMessage className="text-red-500 capitalize" />
+								</FormItem>
+							)}
+						/>
 
-            <FormField
-              control={form.control}
-              name={`products.${Number(tabs.activeTabId.split('-')[1])}.price`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Product Price</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage className="text-red-500 capitalize" />
-                </FormItem>
-              )}
-            /> */}
+						<FormField
+							control={form.control}
+							name={`products.${Number(tabs.activeTabId.split("-")[1])}.price`}
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Product Price</FormLabel>
+									<FormControl>
+										<Input {...field} />
+									</FormControl>
+									<FormMessage className="text-red-500 capitalize" />
+								</FormItem>
+							)}
+						/>
 					</BrowserTabs>
 
 					<Button type="submit" className="!mt-10 w-full">

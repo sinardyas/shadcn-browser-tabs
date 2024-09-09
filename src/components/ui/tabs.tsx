@@ -1,9 +1,14 @@
 "use client";
 
 import * as TabsPrimitive from "@radix-ui/react-tabs";
-import { ChevronLeft, ChevronRight, PlusCircleIcon } from "lucide-react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	PlusCircleIcon,
+	TrashIcon,
+} from "lucide-react";
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
@@ -30,31 +35,56 @@ const TabsList = React.forwardRef<
 ));
 TabsList.displayName = TabsPrimitive.List.displayName;
 
-type CustomTabTrigger = TabsPrimitive.TabsTriggerProps & { totalItems: number };
+type CustomTabTrigger = TabsPrimitive.TabsTriggerProps & {
+	id: string;
+	totalItems: number;
+	onRemoveTab: (id: string) => void;
+	isTabIntersectWithRootEl: boolean;
+};
 
 const TabsTrigger = React.forwardRef<
 	React.ElementRef<typeof TabsPrimitive.Trigger>,
 	CustomTabTrigger
->(({ className, totalItems, id, ...props }, ref) => {
-	const isTotalItemMoreThan4 = useMemo(() => totalItems > 4, [totalItems]);
-	const isFirstElement = useMemo(() => Number(id) === 0, [id]);
-	const isLastElement = useMemo(
-		() => totalItems - 1 === Number(id),
-		[totalItems, id],
-	);
-	return (
-		<TabsPrimitive.Trigger
-			ref={ref}
-			className={cn(
-				"bg-zinc-100 inline-flex items-center justify-center whitespace-nowrap h-full px-3 py-1.5 text-sm font-bold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-[#0066FF] data-[state=active]:shadow-sm border border-[#EAEAEA]",
-				!isTotalItemMoreThan4 && isFirstElement && "rounded-tl-md",
-				!isTotalItemMoreThan4 && isLastElement && "rounded-tr-md",
-				className,
-			)}
-			{...props}
-		/>
-	);
-});
+>(
+	(
+		{
+			id,
+			children,
+			className,
+			totalItems,
+			onRemoveTab,
+			isTabIntersectWithRootEl = false,
+			...props
+		},
+		ref,
+	) => {
+		const isFirstElement = useMemo(() => Number(id) === 0, [id]);
+		const isLastElement = useMemo(
+			() => totalItems - 1 === Number(id),
+			[totalItems, id],
+		);
+		const isRemoveable = totalItems > 1;
+		return (
+			<TabsPrimitive.Trigger
+				ref={ref}
+				className={cn(
+					"bg-zinc-100 inline-flex items-center justify-center gap-2 whitespace-nowrap h-full px-3 py-1.5 text-sm font-bold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-[#0066FF] data-[state=active]:shadow-sm border border-[#EAEAEA]",
+					!isTabIntersectWithRootEl && isFirstElement && "rounded-tl-md",
+					!isTabIntersectWithRootEl && isLastElement && "rounded-tr-md",
+					className,
+				)}
+				{...props}
+			>
+				<div className="w-[16px]" />
+				{children}
+				{/* biome-ignore lint/a11y/useKeyWithClickEvents: <explanation> */}
+				<div onClick={() => onRemoveTab(id)} className="cursor-default">
+					<TrashIcon size={16} color={isRemoveable ? "#696969" : "#B2B2B2"} />
+				</div>
+			</TabsPrimitive.Trigger>
+		);
+	},
+);
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 const TabsContent = React.forwardRef<
@@ -74,11 +104,10 @@ TabsContent.displayName = TabsPrimitive.Content.displayName;
 
 interface TabsNavigationProps
 	extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.TabsList> {
-	onAddNewTab?: () => void;
-	onCloseTab?: () => void;
-	addTabTitle?: string;
 	totalItems: number;
-	isTabNotVisible: boolean;
+	addTabTitle?: string;
+	onAddNewTab?: () => void;
+	isTabIntersectWithRootEl: boolean;
 }
 
 const Nav = ({ direction = "left" }) => (
@@ -101,10 +130,15 @@ const TabsNavigation = React.forwardRef<
 	TabsNavigationProps
 >(
 	(
-		{ children, onAddNewTab, addTabTitle = "Add new tab", isTabNotVisible },
+		{
+			children,
+			onAddNewTab,
+			addTabTitle = "Add new tab",
+			isTabIntersectWithRootEl,
+		},
 		ref,
 	) => {
-		if (isTabNotVisible) {
+		if (isTabIntersectWithRootEl) {
 			return (
 				<div className="inline-flex items-center w-full justify-between">
 					<Nav />
@@ -122,8 +156,8 @@ const TabsNavigation = React.forwardRef<
 			<div className="inline-flex items-center w-full justify-between">
 				{children}
 				<Button
-					onClick={onAddNewTab}
 					size={"sm"}
+					onClick={onAddNewTab}
 					className="bg-[#0066FF] float-right"
 				>
 					<PlusCircleIcon size={16} />
@@ -136,11 +170,12 @@ const TabsNavigation = React.forwardRef<
 
 interface TabsAction {
 	tabTitle: string;
-	isTabNotVisible: boolean;
 	totalItems: number;
 	activeTabId: string;
 	addNewTab: () => void;
 	tabs: Array<{ title: string }>;
+	removeTab: (id: string) => void;
+	isTabIntersectWithRootEl: boolean;
 	setTabTitle: React.Dispatch<React.SetStateAction<string>>;
 	setActiveTabId: React.Dispatch<React.SetStateAction<string>>;
 	tabListRootRef: React.MutableRefObject<HTMLDivElement | null>;
@@ -155,15 +190,16 @@ const BrowserTabs = React.forwardRef<
 >(
 	(
 		{
-			children,
-			activeTabId,
-			setActiveTabId,
-			totalItems,
 			tabs,
+			children,
+			removeTab,
 			addNewTab,
+			totalItems,
+			activeTabId,
 			activeTabRef,
 			tabListRootRef,
-			isTabNotVisible,
+			setActiveTabId,
+			isTabIntersectWithRootEl,
 		},
 		ref,
 	) => {
@@ -172,16 +208,18 @@ const BrowserTabs = React.forwardRef<
 				<TabsNavigation
 					onAddNewTab={addNewTab}
 					totalItems={totalItems}
-					isTabNotVisible={isTabNotVisible}
+					isTabIntersectWithRootEl={isTabIntersectWithRootEl}
 				>
 					<TabsList ref={tabListRootRef}>
-						{tabs.map(({ title }, i) => (
+						{tabs.map(({ title }: { title: string }, i) => (
 							<TabsTrigger
-								value={`tab-${i}`}
 								// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 								key={i}
 								id={String(i)}
+								value={`tab-${i}`}
 								totalItems={totalItems}
+								onRemoveTab={removeTab}
+								isTabIntersectWithRootEl={isTabIntersectWithRootEl}
 								ref={totalItems - 1 === i ? activeTabRef : undefined}
 							>
 								{title}
@@ -189,7 +227,7 @@ const BrowserTabs = React.forwardRef<
 						))}
 					</TabsList>
 				</TabsNavigation>
-				{tabs.map(({ title }, i) => (
+				{tabs.map((_, i) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 					<TabsContent value={`tab-${i}`} key={i}>
 						{children}
@@ -203,7 +241,10 @@ const BrowserTabs = React.forwardRef<
 const TabTitleInput = ({
 	title,
 	setValue,
-}: { title: string; setValue: (s: string) => void }) => {
+}: {
+	title: string;
+	setValue: React.Dispatch<React.SetStateAction<string>>;
+}) => {
 	const [temp, setTemp] = React.useState(title);
 
 	const onChange: React.ChangeEventHandler<HTMLInputElement> = ({
@@ -215,7 +256,7 @@ const TabTitleInput = ({
 
 	return (
 		<div className="grid w-full max-w-sm items-center gap-1.5">
-			<Label htmlFor="email">Tab name</Label>
+			<Label>Tab name</Label>
 			<Input value={temp} onChange={onChange} />
 		</div>
 	);
@@ -232,7 +273,7 @@ const useTabs = (): TabsAction => {
 	const debouncedTabs = useDebounce(tabs, 100);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-	const isTabNotVisible = useMemo(
+	const isTabIntersectWithRootEl = useMemo(
 		() =>
 			tabs.length * (activeTabRef.current?.clientWidth ?? 0) >
 			(tabListRootRef.current?.clientWidth ?? 0),
@@ -269,11 +310,21 @@ const useTabs = (): TabsAction => {
 
 	const totalItems = useMemo(() => tabs.length, [tabs]);
 
-	const addNewTab = React.useCallback(() => {
+	const addNewTab = useCallback(() => {
 		const _tabs = [...tabs, { title: "New Tab" }];
 		setTabs(_tabs);
 		setActiveTabId(`tab-${_tabs.length - 1}`);
 	}, [tabs]);
+
+	const removeTab = useCallback(
+		(id: string) => {
+			const _tabs = tabs;
+			_tabs.splice(Number(id), 1);
+			setTabs([..._tabs]);
+			setActiveTabId(`tab-${_tabs.length - 1}`);
+		},
+		[tabs],
+	);
 
 	return {
 		totalItems,
@@ -282,18 +333,21 @@ const useTabs = (): TabsAction => {
 		tabs,
 		setTabTitle,
 		addNewTab,
+		removeTab,
 		activeTabRef,
 		tabListRootRef,
 		tabTitle: currentTabTitle,
-		isTabNotVisible,
+		isTabIntersectWithRootEl,
 	};
 };
 
 export {
+	// Default Tabs component
 	Tabs,
 	TabsList,
 	TabsTrigger,
 	TabsContent,
+	// Browser tabs
 	TabsNavigation,
 	BrowserTabs,
 	useTabs,
