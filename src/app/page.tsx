@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { BrowserTabs, TabTitleInput, useTabs } from "@/components/ui/tabs";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useConfirm } from "@omit/react-confirm-dialog";
+import { useEffect, useRef } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -37,7 +38,7 @@ const validationSchema = z.object({
 type FormValues = z.infer<typeof validationSchema>;
 
 export default function Home() {
-	const tabs = useTabs();
+	const tabs = useTabs({ maxItems: 3 });
 	const confirm = useConfirm();
 
 	const form = useForm<FormValues>({
@@ -81,7 +82,7 @@ export default function Home() {
 							<FormItem>
 								<FormLabel>Email</FormLabel>
 								<FormControl>
-									<Input {...field} />
+									<Input {...field}/>
 								</FormControl>
 								<FormMessage className="text-red-500 capitalize" />
 							</FormItem>
@@ -148,16 +149,18 @@ export default function Home() {
 							tabs.removeTab(id);
 						}}
 					>
-						<TabTitleInput title={tabs.tabTitle} setValue={tabs.setTabTitle} />
-
 						<FormField
 							control={form.control}
-							name={`products.${Number(tabs.activeTabId.split("-")[1])}.file`}
+							name={`products.${Number(tabs.activeTabId.split("-")[1])}.name`}
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Product File</FormLabel>
+									<FormLabel>Product Name</FormLabel>
 									<FormControl>
-										<Input {...field} />
+										<TabTitleInput
+											{...field}
+											title={tabs.tabTitle}
+											setValue={tabs.setTabTitle}
+										/>
 									</FormControl>
 									<FormMessage className="text-red-500 capitalize" />
 								</FormItem>
@@ -166,10 +169,10 @@ export default function Home() {
 
 						<FormField
 							control={form.control}
-							name={`products.${Number(tabs.activeTabId.split("-")[1])}.name`}
+							name={`products.${Number(tabs.activeTabId.split("-")[1])}.file`}
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Product Name</FormLabel>
+									<FormLabel>Product File</FormLabel>
 									<FormControl>
 										<Input {...field} />
 									</FormControl>

@@ -14,7 +14,6 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { Input } from "./input";
-import { Label } from "./label";
 
 const Tabs = TabsPrimitive.Root;
 
@@ -107,6 +106,7 @@ interface TabsNavigationProps
 	totalItems: number;
 	addTabTitle?: string;
 	onAddNewTab?: () => void;
+	isMaxItemReached: boolean;
 	isTabIntersectWithRootEl: boolean;
 }
 
@@ -132,8 +132,9 @@ const TabsNavigation = React.forwardRef<
 	(
 		{
 			children,
-			onAddNewTab,
 			addTabTitle = "Add new tab",
+			onAddNewTab,
+			isMaxItemReached,
 			isTabIntersectWithRootEl,
 		},
 		ref,
@@ -144,7 +145,12 @@ const TabsNavigation = React.forwardRef<
 					<Nav />
 					{children}
 					<Nav direction="right" />
-					<Button onClick={onAddNewTab} size="sm" className="bg-[#0066FF] ml-2">
+					<Button
+						onClick={onAddNewTab}
+						size="sm"
+						className="bg-[#0066FF] ml-2"
+						disabled={isMaxItemReached}
+					>
 						<PlusCircleIcon size={16} />
 						{addTabTitle}
 					</Button>
@@ -159,6 +165,7 @@ const TabsNavigation = React.forwardRef<
 					size={"sm"}
 					onClick={onAddNewTab}
 					className="bg-[#0066FF] float-right"
+					disabled={isMaxItemReached}
 				>
 					<PlusCircleIcon size={16} />
 					{addTabTitle}
@@ -168,12 +175,17 @@ const TabsNavigation = React.forwardRef<
 	},
 );
 
+interface Tab {
+	title: string;
+}
+
 interface TabsAction {
+	tabs: Array<Tab>;
 	tabTitle: string;
 	totalItems: number;
 	activeTabId: string;
 	addNewTab: () => void;
-	tabs: Array<{ title: string }>;
+	isMaxItemReached: boolean;
 	removeTab: (id: string) => void;
 	isTabIntersectWithRootEl: boolean;
 	setTabTitle: React.Dispatch<React.SetStateAction<string>>;
@@ -199,6 +211,7 @@ const BrowserTabs = React.forwardRef<
 			activeTabRef,
 			tabListRootRef,
 			setActiveTabId,
+			isMaxItemReached,
 			isTabIntersectWithRootEl,
 		},
 		ref,
@@ -209,6 +222,7 @@ const BrowserTabs = React.forwardRef<
 					onAddNewTab={addNewTab}
 					totalItems={totalItems}
 					isTabIntersectWithRootEl={isTabIntersectWithRootEl}
+					isMaxItemReached={isMaxItemReached}
 				>
 					<TabsList ref={tabListRootRef}>
 						{tabs.map(({ title }: { title: string }, i) => (
@@ -238,36 +252,41 @@ const BrowserTabs = React.forwardRef<
 	},
 );
 
-const TabTitleInput = ({
-	title,
-	setValue,
-}: {
+export interface InputProps
+	extends React.InputHTMLAttributes<HTMLInputElement> {
 	title: string;
 	setValue: React.Dispatch<React.SetStateAction<string>>;
-}) => {
-	const [temp, setTemp] = React.useState(title);
+}
 
-	const onChange: React.ChangeEventHandler<HTMLInputElement> = ({
-		currentTarget,
+const TabTitleInput = React.forwardRef<HTMLInputElement, InputProps>(
+	({
+		title,
+		setValue,
+		...props
+	}: {
+		title: string;
+		setValue: React.Dispatch<React.SetStateAction<string>>;
 	}) => {
-		setTemp(currentTarget.value);
-		setValue(currentTarget.value);
-	};
+		const [temp, setTemp] = React.useState(title);
 
-	return (
-		<div className="grid w-full max-w-sm items-center gap-1.5">
-			<Label>Tab name</Label>
-			<Input value={temp} onChange={onChange} />
-		</div>
-	);
-};
+		const onChange: React.ChangeEventHandler<HTMLInputElement> = ({
+			currentTarget,
+		}) => {
+			setTemp(currentTarget.value);
+			setValue(currentTarget.value);
+		};
 
-const useTabs = (): TabsAction => {
-	const [tabs, setTabs] = useState<{ title: string }[]>([{ title: "New Tab" }]);
-	const [tabTitle, setTabTitle] = useState("New Tab");
-	const [activeTabId, setActiveTabId] = useState("tab-0");
+		return <Input value={temp} onChangeCapture={onChange} {...props} />;
+	},
+);
+
+const useTabs = ({ maxItems = 5 }: { maxItems?: number }): TabsAction => {
+	const [tabs, setTabs] = useState<Array<Tab>>([{ title: "New Tab" }]);
+	const [tabTitle, setTabTitle] = useState<string>("New Tab");
+	const [activeTabId, setActiveTabId] = useState<string>("tab-0");
 	const activeTabRef = React.useRef<HTMLButtonElement | null>(null);
 	const tabListRootRef = React.useRef<HTMLDivElement | null>(null);
+	const [isMaxItemReached, setMaxItemReached] = useState<boolean>(false);
 
 	const debouncedTabTitle = useDebounce(tabTitle, 500);
 	const debouncedTabs = useDebounce(tabs, 100);
@@ -311,10 +330,16 @@ const useTabs = (): TabsAction => {
 	const totalItems = useMemo(() => tabs.length, [tabs]);
 
 	const addNewTab = useCallback(() => {
+		if (isMaxItemReached) return;
+
 		const _tabs = [...tabs, { title: "New Tab" }];
 		setTabs(_tabs);
 		setActiveTabId(`tab-${_tabs.length - 1}`);
-	}, [tabs]);
+
+		if (_tabs.length === maxItems) {
+			setMaxItemReached(true);
+		}
+	}, [tabs, maxItems, isMaxItemReached]);
 
 	const removeTab = useCallback(
 		(id: string) => {
@@ -322,14 +347,19 @@ const useTabs = (): TabsAction => {
 			_tabs.splice(Number(id), 1);
 			setTabs([..._tabs]);
 			setActiveTabId(`tab-${_tabs.length - 1}`);
+
+			if (_tabs.length < maxItems) {
+				setMaxItemReached(false);
+			}
 		},
-		[tabs],
+		[tabs, maxItems],
 	);
 
 	return {
 		totalItems,
 		activeTabId,
 		setActiveTabId,
+		isMaxItemReached,
 		tabs,
 		setTabTitle,
 		addNewTab,
