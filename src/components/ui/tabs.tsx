@@ -76,8 +76,9 @@ const TabsTrigger = React.forwardRef<
 			>
 				<div className="w-[16px]" />
 				{children}
+				{/* Rule: disable if tabs contain just one item */}
 				{/* biome-ignore lint/a11y/useKeyWithClickEvents: <explanation> */}
-				<div onClick={() => onRemoveTab(id)} className="cursor-default">
+				<div onClick={totalItems === 1 ? undefined : () => onRemoveTab(id)} className="cursor-default">
 					<TrashIcon size={16} color={isRemoveable ? "#696969" : "#B2B2B2"} />
 				</div>
 			</TabsPrimitive.Trigger>
@@ -344,6 +345,7 @@ const useTabs = ({ maxItems = 5 }: { maxItems?: number }): TabsAction => {
 	const removeTab = useCallback(
 		(id: string) => {
 			const _tabs = tabs;
+
 			_tabs.splice(Number(id), 1);
 			setTabs([..._tabs]);
 			setActiveTabId(`tab-${_tabs.length - 1}`);
