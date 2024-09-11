@@ -8,7 +8,6 @@ import {
 	CardProgressBar,
 	CardTitle,
 } from "@/components/ui/card";
-import { FancyMultiSelect } from "@/components/ui/fancy-multi-select";
 import {
 	Form,
 	FormControl,
