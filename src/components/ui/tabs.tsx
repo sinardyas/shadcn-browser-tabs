@@ -66,8 +66,9 @@ const TabsTrigger = React.forwardRef<
 		return (
 			<TabsPrimitive.Trigger
 				ref={ref}
+				type="button"
 				className={cn(
-					"bg-zinc-100 inline-flex items-center justify-center gap-2 whitespace-nowrap h-full px-3 py-1.5 text-sm font-bold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-[#0066FF] data-[state=active]:shadow-sm border border-[#EAEAEA]",
+					"bg-zinc-100 inline-flex items-center justify-center gap-2 whitespace-nowrap h-full px-3 py-1.5 text-sm font-bold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-[#0066FF] data-[state=active]:shadow-sm border border-[#EAEAEA] border-b-0",
 					!isTabIntersectWithRootEl && isFirstElement && "rounded-tl-md",
 					!isTabIntersectWithRootEl && isLastElement && "rounded-tr-md",
 					className,
@@ -78,7 +79,10 @@ const TabsTrigger = React.forwardRef<
 				{children}
 				{/* Rule: disable if tabs contain just one item */}
 				{/* biome-ignore lint/a11y/useKeyWithClickEvents: <explanation> */}
-				<div onClick={totalItems === 1 ? undefined : () => onRemoveTab(id)} className="cursor-default">
+				<div
+					onClick={totalItems === 1 ? undefined : () => onRemoveTab(id)}
+					className="cursor-default"
+				>
 					<TrashIcon size={16} color={isRemoveable ? "#696969" : "#B2B2B2"} />
 				</div>
 			</TabsPrimitive.Trigger>
@@ -142,7 +146,7 @@ const TabsNavigation = React.forwardRef<
 	) => {
 		if (isTabIntersectWithRootEl) {
 			return (
-				<div className="inline-flex items-center w-full justify-between">
+				<div className="inline-flex items-center w-full justify-between border-b-[1px] border-b-[#EAEAEA]">
 					<Nav />
 					{children}
 					<Nav direction="right" />
@@ -160,7 +164,7 @@ const TabsNavigation = React.forwardRef<
 		}
 
 		return (
-			<div className="inline-flex items-center w-full justify-between">
+			<div className="inline-flex items-center w-full justify-between border-b-[1px] border-b-[#EAEAEA]">
 				{children}
 				<Button
 					size={"sm"}
@@ -218,7 +222,7 @@ const BrowserTabs = React.forwardRef<
 		ref,
 	) => {
 		return (
-			<Tabs value={activeTabId} onValueChange={setActiveTabId}>
+			<Tabs value={activeTabId} onValueChange={setActiveTabId} className="py-4">
 				<TabsNavigation
 					onAddNewTab={addNewTab}
 					totalItems={totalItems}
